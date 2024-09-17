@@ -1,0 +1,53 @@
+# Examples
+
+# Copyright DWJ 2024.
+# Distributed under the Boost Software License, Version 1.0.
+# https://www.boost.org/LICENSE_1_0.txt
+
+name: Deploy
+
+on:
+  push:
+    branches: "main"
+  workflow_dispatch:
+    branches: "**"
+    inputs:
+      server:
+        description: "The server to deploy to"
+        required: true
+        default: "root@dwidge.online"
+
+env:
+  SERVER: ${{ github.event.inputs.server || 'root@dwidge.online' }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+
+    steps:
+      - name: Check secrets exist
+        shell: bash
+        run: |
+          if [ "${{ secrets.SERVER_SSH_KNOWN_HOSTS }}" == '' ]; then
+            echo "secrets.SERVER_SSH_KNOWN_HOSTS missing";
+            exit 1
+          fi
+          if [ "${{ secrets.SERVER_SSH_PRIVATE_KEY }}" == '' ]; then
+            echo "secrets.SERVER_SSH_PRIVATE_KEY missing";
+            exit 1
+          fi
+
+      - name: Set up SSH key
+        uses: webfactory/ssh-agent@v0.8.0
+        with:
+          ssh-private-key: ${{ secrets.SERVER_SSH_PRIVATE_KEY }}
+
+      - name: Set up known_hosts
+        run: echo "${{ secrets.SERVER_SSH_KNOWN_HOSTS }}" >> ~/.ssh/known_hosts
+
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Deploy
+        run: PUBLIC_URL=/example ./scripts/deploy.sh dwidge/example-website ${{ env.SERVER }}

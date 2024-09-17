@@ -1,0 +1,22 @@
+# Copyright DWJ 2024.
+# Distributed under the Boost Software License, Version 1.0.
+# https://www.boost.org/LICENSE_1_0.txt
+
+# Made with gpt-4o-mini
+
+services:
+  example-api:
+    image: ghcr.io/${GITHUB_USER:-user}/example-api:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3002:3002"
+    restart: unless-stopped
+    volumes:
+      - ./data:/root/data
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "http://example-api:3002/"]
+      interval: 5s
+      timeout: 5s
+      retries: 5

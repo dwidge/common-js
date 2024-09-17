@@ -1,0 +1,65 @@
+# Examples
+# Copyright DWJ 2023
+# Distributed under the Boost Software License, Version 1.0.
+# https://www.boost.org/LICENSE_1_0.txt
+
+name: Test
+
+on:
+  workflow_call:
+  workflow_dispatch:
+    branches: "**"
+    inputs:
+      server:
+        description: "The server to test"
+        required: true
+        default: "dwidge.online"
+
+env:
+  SERVER: ${{ github.event.inputs.server || 'dwidge.online' }}
+
+jobs:
+  playwright:
+    timeout-minutes: 20
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: "playwright"
+          # sparse-checkout-cone-mode: false
+
+      - name: Move files to root
+        run: |
+          echo 'Checkout...'
+          ls -lah
+          echo 'Removing root files...'
+          find . -maxdepth 1 -type f -not -path './.env*' -delete
+          ls -lah
+          echo 'Moving playwright/* to ./ ...'
+          shopt -s dotglob
+          mv playwright/* .
+          rm -rf playwright
+          ls -lah
+
+      - name: Create env file
+        run: echo "${{ secrets.ENV_FILE }}" > .env.local
+
+      - name: Install Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+      - run: npm i --no-optional --no-audit --prefer-offline --progress=false
+
+      - name: Run Playwright tests
+        uses: docker://mcr.microsoft.com/playwright:v1.41.0-jammy
+        with:
+          args: env HOME=/root npx dotenv-cli -c production playwright test
+          secrets:
+
+      - uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 30

@@ -1,0 +1,22 @@
+# Copyright DWJ 2024.
+# Distributed under the Boost Software License, Version 1.0.
+# https://www.boost.org/LICENSE_1_0.txt
+
+# Made with gpt-4o-mini
+
+services:
+  items-api-go:
+    image: ghcr.io/${GITHUB_USER:-user}/items-api-go:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8091:8091"
+    restart: unless-stopped
+    volumes:
+      - ./data:/root/data
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "http://items-api-go:8091/"]
+      interval: 15s
+      timeout: 5s
+      retries: 5

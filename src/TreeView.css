@@ -1,0 +1,34 @@
+/* // Copyright DWJ 2023.
+// Distributed under the Boost Software License, Version 1.0.
+// https://www.boost.org/LICENSE_1_0.txt */
+
+.treeview {
+  flex: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.treeview > * {
+  padding-left: 0.5rem;
+}
+
+.treeview span {
+  flex: 0;
+  display: flex;
+  justify-content: left;
+  align-items: center;
+
+  cursor: pointer;
+  padding: 0.5rem;
+  border-radius: 10px;
+
+  color: rgba(0, 0, 0, 0.5);
+  background-color: var(--normal-bg, #f003);
+}
+
+.treeview span:hover,
+.treeview span.active {
+  color: #fff;
+  background-color: var(--active-bg, #300);
+}

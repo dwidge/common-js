@@ -1,0 +1,102 @@
+# Examples
+# Copyright DWJ 2023
+# Distributed under the Boost Software License, Version 1.0.
+# https://www.boost.org/LICENSE_1_0.txt
+
+name: Deploy
+
+on:
+  push:
+    branches-ignore: "main"
+  workflow_dispatch:
+    branches: "**"
+    inputs:
+      server:
+        description: "The server to deploy to"
+        required: true
+        default: "root@dwidge.online"
+      domains:
+        description: "The domains pointing to this server"
+        required: true
+        default: "dwidge.online"
+
+env:
+  SERVER: ${{ github.event.inputs.server || 'root@dwidge.online' }}
+  DOMAINS: ${{ github.event.inputs.domains || 'dwidge.online' }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+
+    steps:
+      - name: Set up SSH key
+        uses: webfactory/ssh-agent@v0.8.0
+        with:
+          ssh-private-key: ${{ secrets.SERVER_SSH_PRIVATE_KEY }}
+
+      - name: Set up known_hosts
+        run: echo "${{ secrets.SERVER_SSH_KNOWN_HOSTS }}" >> ~/.ssh/known_hosts
+
+      - name: Add new public key
+        env:
+          SERVER_SSH_PUBLIC_KEY: ${{ secrets.SERVER_SSH_PUBLIC_KEY }}
+        if: ${{ env.SERVER_SSH_PUBLIC_KEY != '' }}
+        run: |
+          echo "${{ secrets.SERVER_SSH_PUBLIC_KEY }}" >> ~/.ssh/new_rsa.pub
+          ssh-copy-id -f -i ~/.ssh/new_rsa.pub ${{ env.SERVER }} <<< yes
+
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Create env file
+        run: echo "${{ secrets.ENV_FILE }}" > .env.local
+
+      - name: Check inputs
+        run: (cd compose && bash ./deploy.sh "${{ env.SERVER }}" "${{ env.DOMAINS }}" check)
+
+      - name: Install Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+      - uses: pnpm/action-setup@v2
+        name: Install pnpm
+        id: pnpm-install
+        with:
+          version: 7
+          run_install: false
+
+      - name: Get pnpm store directory
+        id: pnpm-cache
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
+
+      - uses: actions/cache@v3
+        name: Setup pnpm cache
+        with:
+          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Authenticate with GitHub Package Registry
+        run: echo "//npm.pkg.github.com/:_authToken=$NODE_AUTH_TOKEN" >> ~/.npmrc
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
+
+      - name: Install
+        run: |
+          pnpm install --no-frozen-lockfile --prefer-offline
+
+      - name: Build and deploy
+        run: (cd compose && bash ./deploy.sh "${{ env.SERVER }}" "${{ env.DOMAINS }}")
+
+      # - name: Dist
+      #   run: pnpm -r dist
+
+  # test:
+  #   needs: [build]
+  #   uses: ./.github/workflows/test.yml
+  #   secrets: inherit
